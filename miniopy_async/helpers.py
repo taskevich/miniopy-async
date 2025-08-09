@@ -745,42 +745,38 @@ class BaseURL:
         return url_replace(url, netloc=f"{s3_prefix}{region}.{domain_suffix}")
 
     def build(
-        self,
-        method: str,
-        region: str,
-        bucket_name: str | None = None,
-        object_name: str | None = None,
-        query_params: DictType | None = None,
+            self,
+            method: str,
+            region: str,
+            bucket_name: str | None = None,
+            object_name: str | None = None,
+            query_params: DictType | None = None,
     ) -> urllib.parse.SplitResult:
         """Build URL for given information."""
         if not bucket_name and object_name:
-            raise ValueError(
-                f"empty bucket name for object name {object_name}",
-            )
+            raise ValueError(f"empty bucket name for object name {object_name}")
 
         url = url_replace(self._url, path="/")
 
-        query = []
-        for key, values in sorted((query_params or {}).items()):
-            values = values if isinstance(values, (list, tuple)) else [values]
-            query += [
-                f"{queryencode(key)}={queryencode(value)}" for value in sorted(values)
-            ]
-        url = url_replace(url, query="&".join(query))
+        if query_params:
+            query_parts = []
+            for key, values in sorted(query_params.items()):
+                if not isinstance(values, (list, tuple)):
+                    values = [values]
+                query_parts.extend(
+                    f"{queryencode(key)}={queryencode(value)}"
+                    for value in sorted(values)
+                )
+            if query_parts:
+                url = url_replace(url, query="&".join(query_parts))
 
         if not bucket_name:
             return self._build_list_buckets_url(url, region)
 
         enforce_path_style = (
-            # CreateBucket API requires path style in Amazon AWS S3.
-            (method == "PUT" and not object_name and not query_params)
-            or
-            # GetBucketLocation API requires path style in Amazon AWS S3.
-            (query_params is not None and "location" in query_params)
-            or
-            # Use path style for bucket name containing '.' which causes
-            # SSL certificate validation error.
-            ("." in bucket_name and self._url.scheme == "https")
+                (method == "PUT" and not object_name and not query_params) or
+                (query_params and "location" in query_params) or
+                ("." in bucket_name and self._url.scheme == "https")
         )
 
         if self._aws_info:
@@ -788,15 +784,16 @@ class BaseURL:
                 self._aws_info, url, bucket_name, enforce_path_style, region
             )
 
-        netloc = url.netloc
-        path = "/"
-
+        netloc, path = url.netloc, "/"
         if enforce_path_style or not self._virtual_style_flag:
             path = f"/{bucket_name}"
         else:
             netloc = f"{bucket_name}.{netloc}"
+
         if object_name:
-            path += ("" if path.endswith("/") else "/") + quote(object_name)
+            if not path.endswith("/"):
+                path += "/"
+            path += quote(object_name)
 
         return url_replace(url, netloc=netloc, path=path)
 

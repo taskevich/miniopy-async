@@ -3098,6 +3098,7 @@ class Minio:  # pylint: disable=too-many-public-methods
         expires: timedelta = timedelta(days=7),
         response_headers: DictType | None = None,
         request_date: datetime | None = None,
+        request_region: bool = False,
         version_id: str | None = None,
         extra_query_params: DictType | None = None,
     ) -> str:
@@ -3178,7 +3179,11 @@ class Minio:  # pylint: disable=too-many-public-methods
         if expires.total_seconds() < 1 or expires.total_seconds() > 604800:
             raise ValueError("expires must be between 1 second to 7 days")
 
-        region = await self._get_region(bucket_name)
+        if request_region:
+            region = await self._get_region(bucket_name)
+        else:
+            region = "us-east-1"
+
         query_params = extra_query_params or {}
         query_params.update({"versionId": version_id} if version_id else {})
         query_params.update(response_headers or {})
@@ -3190,6 +3195,7 @@ class Minio:  # pylint: disable=too-many-public-methods
             base_url = self._server_url
         else:
             base_url = self._base_url
+
         url = base_url.build(
             method,
             region,
