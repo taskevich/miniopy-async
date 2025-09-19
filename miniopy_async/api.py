@@ -3371,7 +3371,7 @@ class Minio:  # pylint: disable=too-many-public-methods
         if expires.total_seconds() < 1 or expires.total_seconds() > 604800:
             raise ValueError("expires must be between 1 second to 7 days")
 
-        region = await self._get_region(bucket_name)
+        region = "us-east-1"
         query_params = extra_query_params or {}
         query_params.update({"versionId": version_id} if version_id else {})
         query_params.update(response_headers or {})
